@@ -443,26 +443,27 @@ class PlancherPanel(bpy.types.Panel):
                     row.prop(cobj, "colseed")            
                     
             #-------------------------------------------------------------CHEVRON / HERRINGBONE
+                                
+            if cobj.shifty == 0 :
+                if cobj.herringbone == False:
                     col = layout.column()
                     col = layout.column()      
                     col.label(text="Chevron")    
                     col = layout.column(align=True)
-                                
-            if cobj.shifty == 0 and cobj.herringbone == False:
-                row = col.row(align=True)
-                row.prop(cobj, "tilt")             
-            
-            if cobj.herringbone == True:
-                col = layout.column()
-                col = layout.column()   
-                col = layout.column(align=True)              
-                row = col.row(align=True) 
-                row.prop(cobj, "gapy")
-                self.switch = True                            
+                    row = col.row(align=True)
+                    row.prop(cobj, "tilt")             
+                
+                if cobj.herringbone == True: 
+                    col = layout.column()
+                    col = layout.column()   
+                    col = layout.column(align=True)              
+                    row = col.row(align=True) 
+                    row.prop(cobj, "gapy")
+                    self.switch = True                            
 
-            row = col.row(align=True) 
-            row.prop(cobj, "herringbone", text='Herringbone', icon='BLANK1')
-            
+                row = col.row(align=True) 
+                row.prop(cobj, "herringbone", text='Herringbone', icon='BLANK1')
+                
             #-------------------------------------------------------------UV / VERTEX
             # Warning, 'cause all the parameters are lost when going back to Object mode...
             # Have to do something with this. 
@@ -869,3 +870,4 @@ def unregister():
             
 if __name__ == "__main__":
     register()
+
