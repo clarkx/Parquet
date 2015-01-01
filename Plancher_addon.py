@@ -601,10 +601,10 @@ def create_plancher(self,context):
                 if v > 3:                                                 # When the last uv point of this polygon is reached
                     minx = min(tpuvx.keys())                              # Keep the smallest value on the X axis from the 4 uv point 
                     miny = min(tpuvy.keys())                              # Keep the smallest value on the Y axis from the 4 uv point
-
                     for loop in face.loops:                               # A new loop in the loop ... really need more work 
                         loop[uv_lay].uv[0] -= minx                        # For each UV point, substract the value of the smallest X 
                         loop[uv_lay].uv[1] -= miny                        # For each UV point, substract the value of the smallest Y
+                    v = 0                                                 # Initialize counter
             tpuvx.clear()                                                 # Clear the list
             tpuvy.clear()                                                 # Clear the list
             
@@ -869,5 +869,3 @@ def unregister():
             
 if __name__ == "__main__":
     register()
-
-
