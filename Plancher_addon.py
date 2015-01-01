@@ -44,12 +44,12 @@ from random import random as rand, seed, uniform as randuni, randint, expovariat
 # COMPUTE THE LENGTH OF THE BOARD AFTER THE TILT
 #############################################################
 # The 'Tilt' is not a rotation.  
-# It's a translation of the two first vertex on X axis (decalx)
-# and a translation of the two ending vertex on the Y axis (decaly) 
+# It's a translation of the two first vertex on X axis (translatex)
+# and a translation of the two ending vertex on the Y axis (translatey) 
 # This will distord the board. So, to keep the end shape and the length
 # I compute the end shape's opposite (1) then the hypotenuse (3) 
 # using the width (2) and the angle (offsetx) from the Pythagoras Theorem (yeaah trigonometry !)
-# Then, I compute the new length of the board (decalx)   
+# Then, I compute the new length of the board (translatex)   
 #     1
 #   *---*-----------------------           |   *----*
 #   |  /                                   |    \    \
