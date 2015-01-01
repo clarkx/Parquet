@@ -128,40 +128,40 @@ def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy):
 
 def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtrans, verts, faces, locktrans, lengthtrans):
     
-    if gaptrans > gapy/(nbrtrans+1): gaptrans = gapy/(nbrtrans+1)         # The gap can't be > to the width of the interval
-    x = 0
-    lengthint = 0
-    if tilt > 0: translatex = 0                                           # Constrain the board to 0 on the x axis 
-    width = ((end - start) - (gaptrans * (nbrtrans + 1))) * (1 / nbrtrans)# Width of 1 board in the interval
-    startint = start + gaptrans                                           # Find the start of the first board
-    while right > lengthint:                                              # While the transversal is < to the right edge of the floor (if unlock) or the board (if locked)
-        if locktrans:                                                     # If the length of the transversal is unlock
-            lengthint += lengthtrans                                      # Add the length 
+    if gaptrans < gapy/(nbrtrans+1):                                      # The gap can't be > to the width of the interval
+        x = 0
+        lengthint = 0
+        if tilt > 0: translatex = 0                                       # Constrain the board to 0 on the x axis 
+        width = ((end - start) - (gaptrans * (nbrtrans + 1))) * (1 / nbrtrans)# Width of 1 board in the interval
+        startint = start + gaptrans                                       # Find the start of the first board
+        while right > lengthint:                                          # While the transversal is < to the right edge of the floor (if unlock) or the board (if locked)
+            if locktrans:                                                 # If the length of the transversal is unlock
+                lengthint += lengthtrans                                  # Add the length 
 
-        if not locktrans or (lengthint > right): lengthint = right        # Constrain the length of the transversal to th length of the board (locked) 
+            if not locktrans or (lengthint > right): lengthint = right    # Constrain the length of the transversal to th length of the board (locked) 
 
-        while x < nbrtrans:                                               # Nbr of boards in the transversal
-            x += 1 
-            endtrans = startint + width                                   # Find the end of the board
+            while x < nbrtrans:                                           # Nbr of boards in the transversal
+                x += 1 
+                endtrans = startint + width                               # Find the end of the board
 
-            # Create the boards in the interval
-            nbvert = len(verts) 
-            verts.extend(interval(left, lengthint, startint, translatex, gapy, endtrans))
-            faces.append((nbvert, nbvert+1, nbvert+2, nbvert+3))
-            startint = endtrans + gaptrans                                # Find the start of the next board
-        #------------------------------------------------------------
-        # Increment / initialize
-        #------------------------------------------------------------
-        if locktrans:
-            left = lengthint + gaptrans
-            lengthint += gaptrans
-            x = 0
-            endtrans = start + width
-            startint = start + gaptrans
-        
-        # The boards can't be > to the length of the floor
-        if left > right:
-            lengthint = left
+                # Create the boards in the interval
+                nbvert = len(verts) 
+                verts.extend(interval(left, lengthint, startint, translatex, gapy, endtrans))
+                faces.append((nbvert, nbvert+1, nbvert+2, nbvert+3))
+                startint = endtrans + gaptrans                            # Find the start of the next board
+            #------------------------------------------------------------
+            # Increment / initialize
+            #------------------------------------------------------------
+            if locktrans:
+                left = lengthint + gaptrans
+                lengthint += gaptrans
+                x = 0
+                endtrans = start + width
+                startint = start + gaptrans
+            
+            # The boards can't be > to the length of the floor
+            if left > right:
+                lengthint = left
 
 
 #############################################################
@@ -870,4 +870,5 @@ def unregister():
             
 if __name__ == "__main__":
     register()
+
 
