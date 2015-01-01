@@ -23,8 +23,8 @@
 bl_info = {
     "name": "Plancher",
     "author": "Cédric Brandin",
-    "version": (0, 0, 15),
-    "blender": (2, 72, 0),
+    "version": (0, 0, 20),
+    "blender": (2, 73, 0),
 	  "location": "",
     "description": "Create a floor board",
     "warning": "",
@@ -41,294 +41,304 @@ from mathutils import Vector, Euler, Matrix
 from random import random as rand, seed, uniform as randuni, randint, expovariate
 
 #############################################################
-# COMPUTE THE LENGTH OF THE BOARD
+# COMPUTE THE LENGTH OF THE BOARD AFTER THE TILT
 #############################################################
-# Calcul pour conserver la largeur de la lame si offsetx.
-def calculangle(gauche, fin, offsetx, debut, largeur, longueurlame):
+# The 'Tilt' is not a rotation.  
+# It's a translation of the two first vertex on X axis (decalx)
+# and a translation of the two ending vertex on the Y axis (decaly) 
+# This will distord the board. So, to keep the end shape and the length
+# I compute the end shape's opposite (1) then the hypotenuse (3) 
+# using the width (2) and the angle (offsetx) from the Pythagoras Theorem (yeaah trigonometry !)
+# Then, I compute the new length of the board (decalx)   
+#     1
+#   *---*-----------------------           |   *----*
+#   |  /                                   |    \    \
+# 2 | / 3                                  V     \    \
+#   |/                                 translatey \    \
+#   *---------------------------                   *----*  ---> translatex
 
-    oppose = largeur * math.tan(offsetx)
-    hyp = math.sqrt(largeur ** 2 + oppose ** 2)
-    decalx = longueurlame * math.sin(offsetx)   
-    decaly = math.sqrt((longueurlame ** 2) - (decalx ** 2))
+def calculangle(left, end, tilt, start, largeur, lengthboard):
+
+    opposite = largeur * math.tan(tilt)                                
+    hyp = math.sqrt(largeur ** 2 + opposite ** 2)                        
+    translatex = lengthboard * math.sin(tilt)                          
+    translatey = math.sqrt((lengthboard ** 2) - (translatex ** 2))       
     
-    return (hyp, decalx, decaly)
+    return (hyp, translatex, translatey)
 
 #############################################################
 # BOARD 
 #############################################################
-# Création des lames basées sur la première.
-def lame(debut, gauche, droite, fin, offsetx, decalx, hyp, batonrompu, espacey):
+# Mesh of the board.
+# If the boards are tilt, we need to inverse the angle each time we call this function :
+# /\/\/ -> So each board will be upside-down compared to each other
+def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy):
     
-    espacex = 0
-    if not batonrompu: espacey = 0
+    gapx = 0
+    if not herringbone: gapy = 0
     
-    if offsetx > 0:
-        decalbas = decalx
-        decalhaut = 0
-        if batonrompu:
-            espacey = espacey / 2
-            espacex = 0
+    if tilt > 0:                                                          # / / / -> 1 board, 3 board, 5 board...               
+        shiftdown = translatex     
+        shiftup = 0                
+        if herringbone:            
+            gapy = gapy / 2        
+            gapx = 0               
             
-    else:
-        decalbas = 0
-        decalhaut = -decalx
-        if batonrompu:
-            espacey = espacey / 2
-            espacex = espacey * 2
-
+    else:                                                                 #  \ \ \-> 2 board, 4 board, 6 board...
+        shiftdown = 0              
+        shiftup = -translatex      
+        if herringbone:            
+            gapy = gapy / 2        
+            gapx = gapy * 2        
+                                   
         
-    # bas gauche [0,0,0]
-    bg = Vector((gauche + decalbas + espacex, debut - espacey, 0))
-    # bas droite [1,0,0]
-    bd = Vector((droite + decalbas + espacex, debut - espacey, 0))
-    # haut droite [1,1,0]
-    hd = Vector((droite - decalhaut + espacex, fin - espacey, 0))
-    # haut gauche [0,1,0]
-    hg = Vector((gauche - decalhaut + espacex, fin - espacey, 0))
+    # down left [0,0,0]
+    dl = Vector((left + shiftdown + gapx, start - gapy, 0))
+    # down right [1,0,0]
+    dr = Vector((right + shiftdown + gapx, start - gapy, 0))
+    # up right [1,1,0]
+    ur = Vector((right - shiftup + gapx, end - gapy, 0))
+    # up left [0,1,0]
+    ul = Vector((left - shiftup + gapx, end - gapy, 0))
 
-    if batonrompu:
-        if offsetx > 0:
-            hd[0] = hd[0] - (hyp / 2) 
-            hd[1] = hd[1] + (hyp / 2) 
-            bd[0] = bd[0] - (hyp / 2)
-            bd[1] = bd[1] + (hyp / 2)
-        else:
-            bg[0] = bg[0] + (hyp / 2)
-            bg[1] = bg[1] + (hyp / 2) 
-            hg[0] = hg[0] + (hyp / 2) 
-            hg[1] = hg[1] + (hyp / 2) 
+    if herringbone:
+        if tilt > 0:                                                      # / / / -> 1 board, 3 board, 5 board... 
+            ur[0] = ur[0] - (hyp / 2) 
+            ur[1] = ur[1] + (hyp / 2) 
+            dr[0] = dr[0] - (hyp / 2)
+            dr[1] = dr[1] + (hyp / 2)
+        else:                                                             #  \ \ \-> 2 board, 4 board, 6 board...
+            dl[0] = dl[0] + (hyp / 2)
+            dl[1] = dl[1] + (hyp / 2) 
+            ul[0] = ul[0] + (hyp / 2) 
+            ul[1] = ul[1] + (hyp / 2) 
 
-    verts = (bg, hg, hd, bd)
+    verts = (dl, ul, ur, dr)
    
     return (verts)
 
 #############################################################
 # TRANSVERSAL
 #############################################################
-# Création des transversales.
-def transversal(gauche, droite, debut, offsetx, decalx, espacey, esptrans, fin, nbrtrans, verts, faces, locktrans, longtrans):
+# Creation of the boards in the interval.
+# --    -> tilt > 0 : No translation on the x axis
+# \\
+#  --   -> tilt < 0 : Translation on the x axis to follow the tilted boards
+# //
+
+def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtrans, verts, faces, locktrans, lengthtrans):
     
-    if esptrans > espacey/(nbrtrans+1): esptrans = espacey/(nbrtrans+1)   #L'espace ne peut pas excéder la largeur de la transversale
+    if gaptrans > gapy/(nbrtrans+1): gaptrans = gapy/(nbrtrans+1)         # The gap can't be > to the width of the interval
     x = 0
-    longint = 0
-    bool_decal = True
-    if offsetx > 0: decalx = 0
-    lrg = ((fin - debut)-(esptrans*(nbrtrans+1))) * (1 / nbrtrans)  #Largeur de la lame / nbr de transversales
-    debint = debut + esptrans
-    while droite > longint:
-        if locktrans: 
-            longint += longtrans
+    lengthint = 0
+    if tilt > 0: translatex = 0                                           # Constrain the board to 0 on the x axis 
+    width = ((end - start) - (gaptrans * (nbrtrans + 1))) * (1 / nbrtrans)# Width of 1 board in the interval
+    startint = start + gaptrans                                           # Find the start of the first board
+    while right > lengthint:                                              # While the transversal is < to the right edge of the floor (if unlock) or the board (if locked)
+        if locktrans:                                                     # If the length of the transversal is unlock
+            lengthint += lengthtrans                                      # Add the length 
 
-        if not locktrans or (longint > droite): longint = droite
+        if not locktrans or (lengthint > right): lengthint = right        # Constrain the length of the transversal to th length of the board (locked) 
 
-        while x < nbrtrans: # Nombre de planches dans l'interval
-            x += 1
-            # Incrémentation fin de chaque planche
-            fintrans = debint + lrg
+        while x < nbrtrans:                                               # Nbr of boards in the transversal
+            x += 1 
+            endtrans = startint + width                                   # Find the end of the board
 
-            # Récupération du nombre total de points
-            nbvert = len(verts)
-
-            # Création de la planche dans l'interval
-            verts.extend(interval(gauche, longint, debint, decalx, espacey, fintrans))
-
-            # Création des faces à partir des points
+            # Create the boards in the interval
+            nbvert = len(verts) 
+            verts.extend(interval(left, lengthint, startint, translatex, gapy, endtrans))
             faces.append((nbvert, nbvert+1, nbvert+2, nbvert+3))
-            debint = fintrans + esptrans
-        #------------------------------------------------------------------------------------
-        # Initialisation
+            startint = endtrans + gaptrans                                # Find the start of the next board
+        #------------------------------------------------------------
+        # Increment / initialize
+        #------------------------------------------------------------
         if locktrans:
-            gauche = longint + esptrans
-            longint += esptrans
+            left = lengthint + gaptrans
+            lengthint += gaptrans
             x = 0
-            fintrans = debut + lrg
-            debint = debut + esptrans
-        # Test si on depasse la longueur du parquet, on sort de la boucle.
-        if gauche > droite:
-            longint = gauche
+            endtrans = start + width
+            startint = start + gaptrans
+        
+        # The boards can't be > to the length of the floor
+        if left > right:
+            lengthint = left
 
 
 #############################################################
 # INTERVAL
 #############################################################
-# Création d'une nouvelle lame dans l'intervalle Y.
-def interval(gauche, droite, debut, offsetx, espacey, fin):
+# Creation of 1 transversal 
 
-    # bas droite
-    bd = Vector((droite + offsetx, debut, 0))
-    # bas gauche
-    bg = Vector((gauche + offsetx, debut, 0))
-    # haut gauche
-    hg = Vector((gauche + offsetx, fin, 0))
-    # haut droite
-    hd = Vector((droite + offsetx, fin, 0))
+def interval(left, right, start, translatex, gapy, end):
+
+    # Down right
+    dr = Vector((right + translatex, start, 0))
+    # Down left
+    dl = Vector((left + translatex, start, 0))
+    # Up left
+    ul = Vector((left + translatex, end, 0))
+    # Up right
+    ur = Vector((right + translatex, end, 0))
     
-    verts = (bg, hg, hd, bd)
+    verts = (dl, ul, ur, dr)
     
     return verts
 
 #############################################################
 # FLOOR BOARD
 #############################################################
-# Création d'une rangée de parquet
-def parquet(switch, nbrlame, largeur, randlargoffset, espacex, longueurlame, espacey, offsety, nbrdecal, offsetx, batonrompu, randoffsety, longueurparquet, hauteur, trans, esptrans, longtrans, locktrans, nbrtrans):
+# Creation of a column of boards
 
-    #------------------------------------------------------------
-    # Initialisation des zones
-    #------------------------------------------------------------
+def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shifty, nbrshift, tilt, herringbone, randoshifty, lengthparquet, hauteur, trans, gaptrans, lengthtrans, locktrans, nbrtrans):
+
     x = 0
     y = 0
     verts = []
     faces = []
     listinter = []
-    debut = 0
-    gauche = 0
-    bool_decaly = True #offsety = 0  
-    fin = longueurlame 
-    intergauche = 0
-    interdroite = 0
-    if offsety: locktrans = False
-    if batonrompu : switch = True
-    if randoffsety > 0:
-        randecaley = offsety * (1-randoffsety)
+    start = 0
+    left = 0
+    bool_translatey = True                                                # shifty = 0                                                             
+    end = lengthboard                                                                                                                              
+    interleft = 0                                                                                                                                  
+    interright = 0                                                                                                                                 
+    if shifty: locktrans = False                                          # Can't have the boards shifted and the tranversal unlocked              
+    if herringbone : switch = True                                        # Constrain the computation of the length using the boards if herringbone
+    if randoshifty > 0:                                                   # If randomness in the shift of the boards
+        randomshift = shifty * (1-randoshifty)                            # Compute the amount of randomness in the shift
     else:
-        randecaley = offsety
+        randomshift = shifty                                              # No randomness
         
-    if offsety > 0: 
-        offsetx = 0
-        batonrompu = False
+    if shifty > 0: 
+        tilt = 0
+        herringbone = False
 
-    if espacey == 0: #Si il n'y pas d'écart entre les lames, désactivation de la planche transversale.
+    if gapy == 0:                                                         # If no gap on the Y axis : the transversal is not possible
         trans = False
 
-    if batonrompu:
-        offsety = 0
-        offsetx = math.radians(45)
-        randlargoffset = 0
-        trans = False
-    #------------------------------------------------------------
-    hyp, decalx, decaly = calculangle(gauche, fin, offsetx, debut, largeur, fin)
-    randespace = hyp + (randlargoffset * randuni(0, hyp)) # Ajout de hasard dans la largeur des rangées
-    droite = randespace # Droite = largeur    
-    fin = decaly - (decaly * randuni(randecaley, offsety))
+    if herringbone:                                                       # Constraints if herringbone is choose :
+        shifty = 0                                                        # - no shift
+        tilt = math.radians(45)                                           # - Tilt = 45°
+        randwith = 0                                                      # - No random on the width
+        trans = False                                                     # - No transversal
+    
+    # Compute the new length and width of the board if tilted
+    hyp, translatex, translatey = calculangle(left, end, tilt, start, largeur, end)
+    
+    randwidth = hyp + (randwith * randuni(0, hyp))                        # Randomness in the width
+    right = randwidth                                                     # Right = width of the board
+    end = translatey - (translatey * randuni(randomshift, shifty))        # Randomness in the length
 
-    if batonrompu or switch: # Force la longueur du parquet au nombre de planches
-        longueurparquet = round(longueurparquet / decaly) * decaly + (round(longueurparquet / decaly)-1) * espacey
+    if herringbone or switch:                                             # Compute the length of the floor based on the length of the boards
+        lengthparquet = round(lengthparquet / translatey) * translatey + (round(lengthparquet / translatey)-1) * gapy
         
     #------------------------------------------------------------
-    # Boucle de création des lames sur X
+    # Loop for the boards on the X axis
     #------------------------------------------------------------
-    while x < nbrlame:
+    while x < nbrboards:                                                  # X axis 
         x += 1   
 
-        if (x % nbrdecal != 0): bool_decaly = not bool_decaly # Décalage de plusieurs rangées
+        if (x % nbrshift != 0): bool_translatey = not bool_translatey     # Shift on multiple columns
+        if end > lengthparquet :                                          # Cut the last board if it's > than the floor
+            end = lengthparquet
+            end2 = end
 
-        # Si la dernière planche dépasse, on la coupe !
-        if fin > longueurparquet :
-            fin = longueurparquet
-            fin2 = fin
-
-        # Récupération du nombre total de points
+        # Creation of the first board
         nbvert = len(verts)
-            
-        # Création premier objet de chaque rangée 
-        verts.extend(lame(debut, gauche, droite, fin, offsetx, decalx, hyp, batonrompu, espacey))
-
-        # Création des faces à partir des points
+        verts.extend(board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy))
         faces.append((nbvert,nbvert+1, nbvert+2, nbvert+3))
         
         # Début d'une nouvelle rangée (Y)
-        debut2 = fin + espacey
-        fin2 = debut2 
+        start2 = end + gapy
+        end2 = start2 
         #------------------------------------------------------------
-        # TRANSVERSALE
+        # TRANSVERSAL
         #------------------------------------------------------------
-        listinter.append(gauche)
-        if trans and ((x % nbrdecal == 0) or ((x % nbrdecal != 0) and (x == nbrlame))) and (fin < longueurparquet) and not locktrans:
-            if debut2 > longueurparquet: debut2 = longueurparquet
-            transversal(listinter[0], droite, fin, offsetx, decalx, espacey, esptrans, debut2, nbrtrans, verts, faces, locktrans, longtrans)
-        elif trans and (x == nbrlame) and locktrans:
-            if debut2 > longueurparquet: debut2 = longueurparquet
-            transversal(listinter[0], droite, fin, offsetx, decalx, espacey, esptrans, debut2, nbrtrans, verts, faces, locktrans, longtrans)
+        # listinter = List of the length (left) of the interval || x = nbr of the actual column || nbrshift = nbr of columns to shift || nbrboards = Total nbr of column 
+        # The modulo (%) is here to determined if the actual interval as to be shift        
+        listinter.append(left)                                            # Keep the length of the actual interval
+        if trans and ((x % nbrshift == 0) or ((x % nbrshift != 0) and (x == nbrboards))) and (end < lengthparquet) and not locktrans:
+            if start2 > lengthparquet: start2 = lengthparquet             # Cut the board if it's > than the floor
+            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
+        elif trans and (x == nbrboards) and locktrans:
+            if start2 > lengthparquet: start2 = lengthparquet             # Cut the board if it's > than the floor
+            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
 
         #------------------------------------------------------------
-        # Boucle de création des lames sur Y
+        # Loop for the boards on the Y axis
         #------------------------------------------------------------
-        while longueurparquet > fin2 :
+        while lengthparquet > end2 :                                      # Y axis
+            end2 = start2 + translatey                                    # New column
+            if end2 > lengthparquet :                                     # Cut the board if it's > than the floor
+                end2 = lengthparquet
 
-            # Début d'une nouvelle rangée
-            fin2 = debut2 + decaly
-
-            # Si la dernière planche dépasse, on la coupe !
-            if fin2 > longueurparquet :
-                fin2 = longueurparquet
-
-            # Récupération du nombre total de points
-            nbvert = len(verts)
-
-            # Invertion de l'offset pour décalage X
-            if offsetx < 0:
-                offsetx = offsetx * (-1)
+            if tilt < 0:                                                  # This part is used to inversed the tilt of the boards 
+                tilt = tilt * (-1)                                         
             else:
-                offsetx = -offsetx
+                tilt = -tilt
 
-            # Création des objets 
-            verts.extend(lame(debut2, gauche, droite, fin2, offsetx, decalx, hyp, batonrompu, espacey))
-
-            # Création des faces à partir des points
+            # Creation of the board
+            nbvert = len(verts)
+            verts.extend(board(start2, left, right, end2, tilt, translatex, hyp, herringbone, gapy))
             faces.append((nbvert,nbvert+1, nbvert+2, nbvert+3))
 
-            # Début d'une nouvelle rangée 
-            debut2 += decaly + espacey
+            # New column 
+            start2 += translatey + gapy
             
             #------------------------------------------------------------
-            # TRANSVERSALE
+            # TRANSVERSAL
             #------------------------------------------------------------
-            if trans and ((x % nbrdecal == 0) or ((x % nbrdecal != 0) and (x == nbrlame))) and (fin2 < longueurparquet) and not locktrans:
-                if debut2 > longueurparquet: debut2 = longueurparquet
-                transversal(listinter[0], droite, fin2, offsetx, decalx, espacey, esptrans, debut2, nbrtrans, verts, faces, locktrans, longtrans)
+            # x = nbr of the actual column || nbrshift = nbr of columns to shift || nbrboards = Total nbr of column 
+            # The modulo (%) is here to determined if the actual interval as to be shift  
+            if trans and ((x % nbrshift == 0) or ((x % nbrshift != 0) and (x == nbrboards))) and (end2 < lengthparquet) and not locktrans:
+                if start2 > lengthparquet: start2 = lengthparquet         # Cut the board if it's > than the floor
+                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
 
-            elif trans and locktrans and (x == nbrlame) and (fin2 < longueurparquet) :
-                if debut2 > longueurparquet: debut2 = longueurparquet
-                transversal(listinter[0], droite, fin2, offsetx, decalx, espacey, esptrans, debut2, nbrtrans, verts, faces, locktrans, longtrans)
+            elif trans and locktrans and (x == nbrboards) and (end2 < lengthparquet) :
+                if start2 > lengthparquet: start2 = lengthparquet         # Cut the board if it's > than the floor
+                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
 
-            # Test si on depasse la longueur du parquet, on sort de la boucle.
-            fin2 = debut2
-        # Incrémentation
-        if not batonrompu:
-            gauche += espacex
-            droite += espacex
-        else:
-            droite += espacey * 2
-            gauche += espacey * 2
-        gauche += randespace
-        if (x % nbrdecal == 0) and not locktrans: listinter = []
-        randespace = hyp + (randlargoffset * randuni(0, hyp))
-        droite += randespace            
+            end2 = start2                                                 # End of the loop on Y axis
+        #------------------------------------------------------------#
+                                                         
         #------------------------------------------------------------
-        # Décalage des rangées sur Y
+        # Increment / initialize                                      
+        #------------------------------------------------------------ 
+        if (x % nbrshift == 0) and not locktrans: listinter = []          # Initialize the list of interval if the nbr of boards to shift is reaches        
+        if not herringbone:                                               # If not herringbone 
+            left += gapx                                                  #  Add the value of gapx to the left side of the boards 
+            right += gapx                                                 #  Add the value of gapx to the right side of the boards
+        else:                                                             # If herringbone, we don't use the gapx anymore in the panel  
+            right += gapy * 2                                             #  used only the gapy                              
+            left += gapy * 2                                              #  ""     ""      ""                               
+        left += randwidth                                                 # Add randomness on the left side of the boards  
+        randwidth = hyp + (randwith * randuni(0, hyp))                    # Compute the new randomness on the width (hyp)
+        right += randwidth                                                # Add randomness on the right side of the boards 
+        #------------------------------------------------------------#
+        
         #------------------------------------------------------------
-
-        if (bool_decaly and offsety > 0):
-            if (x % nbrdecal == 0 ):
-                fin = decaly * randuni(randecaley, offsety)
-            bool_decaly = False  
+        # Shift on the Y axis
+        #------------------------------------------------------------
+        # bool_translatey is turn on and off at each new column to reverse the direction of the shift up or down.
+        if (bool_translatey and shifty > 0):                              # If the columns are shifted
+            if (x % nbrshift == 0 ):                                      # If the nbr of column to shift is reach 
+                end = translatey * randuni(randomshift, shifty)           # Compute and add the randomness to the new end (translatey) shifted 
+            bool_translatey = False                                       # Turn on the boolean, so it will be inverted for the next colmun
         else:
-            if (x % nbrdecal == 0 ):
-                fin = decaly - (decaly * randuni(randecaley, offsety))
-            bool_decaly = True
-
-
+            if (x % nbrshift == 0 ):
+                end = translatey - (translatey * randuni(randomshift, shifty)) # Compute and add the randomness to the new end (translatey) shifted
+            bool_translatey = True                                        # Turn on the boolean, so it will be inverted for the next colmun
         #------------------------------------------------------------#
 
         #------------------------------------------------------------
-        # Décalage sur X (parquet Hongrie) : Initialisation de l'offsetx
+        # Herringbone only
         #------------------------------------------------------------                
-        if offsetx < 0:
-           offsetx = offsetx * (-1)   
+        # Invert the value of the tilted parameter
+        if tilt < 0:                                                      # The tilted value is inverted at each column
+           tilt = tilt * (-1)                                             # so the boards will be reverse
         #------------------------------------------------------------#
 
-    #------------------------------------------------------------ FIN BOUCLE X         
+    #------------------------------------------------------------         # End of the loop on X axis
     return verts, faces
 
 #############################################################
@@ -360,9 +370,9 @@ class PlancherPanel(bpy.types.Panel):
             #Vertex Color
             if cobj.colphase == 0:
                 row = col.row(align=True)
-                row.prop(cobj, "uvcol")
+                row.prop(cobj, "colrand")
             #Phase Color
-            if cobj.uvcol == 0:
+            if cobj.colrand == 0:
                 row = col.row(align=True) 
                 row.prop(cobj, "colphase")
             #Seed color
@@ -370,87 +380,92 @@ class PlancherPanel(bpy.types.Panel):
             row.prop(cobj, "colseed")            
             #layout.label('Plancher only works in Object Mode.')
         elif myObj and myObj.name == 'Plancher'  :
-            #------------------------------------------------------------PLANCHER
+            #-------------------------------------------------------------FLOOR
             col.label(text="Surface")
             
             col = layout.column(align=True)
             row = col.row(align=True)
             row.prop(cobj, "switch", icon='BLANK1')
             row = col.row(align=True)
-            row.prop(cobj, "nbrlame")
-            row.prop(cobj, "longueurparquet")
+            row.prop(cobj, "nbrboards")
+            row.prop(cobj, "lengthparquet")
             row = col.row(align=True)         
             row.prop(cobj, "hauteur")   
 
             col = layout.column()
             col = layout.column()      
 
-            #------------------------------------------------------------SOL
+            #-------------------------------------------------------------BOARDS
             col.label(text="Board")
             col = layout.column(align=True)
             row = col.row(align=True)
             
-            row.prop(cobj, "longueurlame")
+            row.prop(cobj, "lengthboard")
             row.prop(cobj, "largeur")
             row = col.row(align = True)
-            row.prop(cobj, "randlargoffset", text="Random", slider=True)
+            row.prop(cobj, "randwith", text="Random", slider=True)
             row = col.row(align=True) 
             row.prop(cobj, "colseed")
             
             col = layout.column()
             col = layout.column()   
             
-            #------------------------------------------------------------ESPACEMENT        
-            col.label(text="Gap")
-            col = layout.column(align=True)
-            row = col.row(align=True)
-
-            if cobj.batonrompu == False:
-                row.prop(cobj, "espacex")
-            row.prop(cobj, "espacey")
-            if cobj.espacey > 0:
-
-            #------------------------------------------------------------TRANSVERSAL     
-                col = layout.column(align=True)
-                row = col.row(align=True)
-                row.label(text="Transversal:")
-                row.prop(cobj, "trans")
-                if cobj.trans:
-                    row.prop(cobj, "locktrans")
+            #-------------------------------------------------------------GAP 
+            if cobj.herringbone == False:       
+                col.label(text="Gap")                        
+                col = layout.column(align=True)              
+                row = col.row(align=True)                    
+                row.prop(cobj, "gapx")                   
+                row.prop(cobj, "gapy")                       
+                if cobj.gapy > 0:                            
+                                                      
+            #-------------------------------------------------------------TRANSVERSAL     
                     col = layout.column(align=True)
                     row = col.row(align=True)
-                    if cobj.locktrans: row.prop(cobj, "longtrans")
-                    if not cobj.locktrans: row.prop(cobj, "nbrdecal")
-                    row.prop(cobj, "nbrtrans")
+                    row.label(text="Transversal:")
+                    row.prop(cobj, "trans")
+                    if cobj.trans:
+                        row.prop(cobj, "locktrans")
+                        col = layout.column(align=True)
+                        row = col.row(align=True)
+                        if cobj.locktrans: row.prop(cobj, "lengthtrans")
+                        if not cobj.locktrans: row.prop(cobj, "nbrshift")
+                        row.prop(cobj, "nbrtrans")
+                        row = col.row(align=True)
+                        row.prop(cobj, "gaptrans")
+                    else: 
+                        row = col.row(align=True)
+                        row.prop(cobj, "nbrshift")
                     row = col.row(align=True)
-                    row.prop(cobj, "esptrans")
-                else: 
-                    row = col.row(align=True)
-                    row.prop(cobj, "nbrdecal")
-                row = col.row(align=True)
-                row.prop(cobj, "offsety")
-                row.prop(cobj, "randoffsety")
-                row = col.row(align=True) 
-                row.prop(cobj, "colseed")            
-
-            #------------------------------------------------------------CHEVRON / HERRINGBONE
-                col = layout.column()
-                col = layout.column()      
-                col.label(text="Chevron")    
-                col = layout.column(align=True)
+                    row.prop(cobj, "shifty")
+                    row.prop(cobj, "randoshifty")
+                    row = col.row(align=True) 
+                    row.prop(cobj, "colseed")            
+                    
+            #-------------------------------------------------------------CHEVRON / HERRINGBONE
+                    col = layout.column()
+                    col = layout.column()      
+                    col.label(text="Chevron")    
+                    col = layout.column(align=True)
                                 
-            if cobj.offsety == 0 and cobj.batonrompu == False:
+            if cobj.shifty == 0 and cobj.herringbone == False:
                 row = col.row(align=True)
-                #Parquet Hongrie
-                row.prop(cobj, "offsetx")             
+                row.prop(cobj, "tilt")             
             
-            if cobj.batonrompu == True:
+            if cobj.herringbone == True:
+                col = layout.column()
+                col = layout.column()   
+                col = layout.column(align=True)              
+                row = col.row(align=True) 
+                row.prop(cobj, "gapy")
                 self.switch = True                            
-            #Parquet Herringbone
+
             row = col.row(align=True) 
-            row.prop(cobj, "batonrompu", text='Herringbone', icon='BLANK1')
+            row.prop(cobj, "herringbone", text='Herringbone', icon='BLANK1')
             
-            #------------------------------------------------------------UV / VERTEX
+            #-------------------------------------------------------------UV / VERTEX
+            # Warning, 'cause all the parameters are lost when going back to Object mode...
+            # Have to do something with this. 
             col = layout.column()
             col = layout.column() 
             col = layout.column(align=True)     
@@ -467,22 +482,22 @@ def create_plancher(self,context):
     bpy.context.scene.unit_settings.system = 'METRIC'
     cobj = context.object
     verts, faces = parquet(cobj.switch,
-                               cobj.nbrlame,
+                               cobj.nbrboards,
                                cobj.largeur,
-                               cobj.randlargoffset,
-                               cobj.espacex,
-                               cobj.longueurlame,
-                               cobj.espacey,
-                               cobj.offsety,
-                               cobj.nbrdecal,
-                               cobj.offsetx,
-                               cobj.batonrompu,
-                               cobj.randoffsety,
-                               cobj.longueurparquet,
+                               cobj.randwith,
+                               cobj.gapx,
+                               cobj.lengthboard,
+                               cobj.gapy,
+                               cobj.shifty,
+                               cobj.nbrshift,
+                               cobj.tilt,
+                               cobj.herringbone,
+                               cobj.randoshifty,
+                               cobj.lengthparquet,
                                cobj.hauteur,
                                cobj.trans,
-                               cobj.esptrans,
-                               cobj.longtrans,
+                               cobj.gaptrans,
+                               cobj.lengthtrans,
                                cobj.locktrans,
                                cobj.nbrtrans,)
     
@@ -502,112 +517,102 @@ def create_plancher(self,context):
     emesh.user_clear()
     bpy.data.meshes.remove(emesh)
     mesh.name = name
-    # ---------------------------------------------------------------
 
-    #----------------------------------------------------------------COLOR & UV 
-    if obj_mode =='EDIT':
-        seed(cobj.colseed)
-        # Ajout des UV et d'une couleur pour chaque planche
-        mesh.uv_textures.new("Txt_Plancher")
-        vertex_colors = mesh.vertex_colors.new().data
+    #---------------------------------------------------------------------COLOR & UV 
+    if obj_mode =='EDIT':                                                 # If we are in 'EDIT MODE'
+        seed(cobj.colseed)                                                # New random distribution
+        mesh.uv_textures.new("Txt_Plancher")                              # New UV map
+        vertex_colors = mesh.vertex_colors.new().data                     # New vertex color
         rgb = []
 
-        # Générer autant de couleurs que d'uvcol
-        if cobj.uvcol > 0: 
-            for i in range(cobj.uvcol):
-                color = [round(rand()), round(rand()), round(rand())]
-                rgb.append(color)
+        if cobj.colrand > 0:                                              # If random color
+            for i in range(cobj.colrand):
+                color = [round(rand()), round(rand()), round(rand())]     # Create as many random color as in the colrand variable
+                rgb.append(color)                                         # Keep all the colors in the RGB variable
 
-        elif cobj.colphase > 0: 
-            for n in range(cobj.colphase):
-                color = [round(rand()), round(rand()), round(rand())]
-                rgb.append(color)      
-    #----------------------------------------------------------------VERTEX GROUP
-        # Création d'un vertex group
-        bpy.context.object.vertex_groups.clear()
-        if cobj.uvcol == 0 and cobj.colphase == 0: 
+        elif cobj.colphase > 0:                                           # If phase color 
+            for n in range(cobj.colphase):                                  
+                color = [round(rand()), round(rand()), round(rand())]     # Create as many random color as in the colphase variable  
+                rgb.append(color)                                         # Keep all the colors in the RGB variable                 
+                
+    #---------------------------------------------------------------------VERTEX GROUP
+        bpy.context.object.vertex_groups.clear()                          # Clear vertex group if exist
+        if cobj.colrand == 0 and cobj.colphase == 0:                      # Create the first Vertex Group
             bpy.context.object.vertex_groups.new()
-        elif cobj.uvcol > 0:        
-            # Création de plusieurs vertex group
-            for v in range(cobj.uvcol): 
+        elif cobj.colrand > 0:                                            # Create as many VG as random color
+            for v in range(cobj.colrand): 
                 bpy.context.object.vertex_groups.new()
-        elif cobj.colphase > 0: 
-            # Création de plusieurs vertex group
+        elif cobj.colphase > 0:                                           # Create as many VG as phase color
             for v in range(cobj.colphase): 
                 bpy.context.object.vertex_groups.new()
 
-    #----------------------------------------------------------------VERTEX COLOR        
+    #---------------------------------------------------------------------VERTEX COLOR        
         phase = cobj.colphase
         color = {}
-        for poly in mesh.polygons:
+        for poly in mesh.polygons:                                        # For each polygon of the mesh
 
-            if cobj.uvcol == 0 and cobj.colphase == 0: 
-                color = [rand(), rand(), rand()]
+            if cobj.colrand == 0 and cobj.colphase == 0:                  # If no color 
+                color = [rand(), rand(), rand()]                          # Create at least one random color
 
-            elif cobj.uvcol > 0: 
-                color = rgb[randint(0,cobj.uvcol-1)]
+            elif cobj.colrand > 0:                                        # If random color
+                color = rgb[randint(0,cobj.colrand-1)]                    # Take one color ramdomly from the RGB list
                 
-                for loop_index in poly.loop_indices:
-                    vertex_colors[loop_index].color = color
+                for loop_index in poly.loop_indices:                      # For each vertice from this polygon
+                    vertex_colors[loop_index].color = color               # Assign the same color
                     vg = bpy.context.object.vertex_groups[rgb.index(color)]
+                    vg.add([loop_index], 1, "ADD")                        # index, weight, operation
 
-                    # Assigne chaque vertex/couleur a un vertex group
-                    vg.add([loop_index], 1, "ADD") # index, weight, operation
-
-            elif cobj.colphase > 0: 
-                color = rgb[phase-1]
-                phase -= 1
-                if phase == 0: phase = cobj.colphase
-                
-                for loop_index in poly.loop_indices:
-                    vertex_colors[loop_index].color = color
+            elif cobj.colphase > 0:                                       # If phase color                          
+                color = rgb[phase-1]                                      # Take the last color from the RGB list
+                phase -= 1                                                # Substract 1 from the phase number
+                if phase == 0: phase = cobj.colphase                      # When phase = 0, start again from the beginning to loop in the rgb list
+                                                                          
+                for loop_index in poly.loop_indices:                      # For each vertice from this polygon
+                    vertex_colors[loop_index].color = color               # Assign the same color
                     vg = bpy.context.object.vertex_groups[rgb.index(color)]
+                    vg.add([loop_index], 1, "ADD")                        # index, weight, operation
+        color.clear()                                                     # Clear the color list
 
-                    # Assigne chaque vertex/couleur a un vertex group
-                    vg.add([loop_index], 1, "ADD") 
-        color.clear() 
-
-        # UV Unwrap
+        #-----------------------------------------------------------------UV UNWRAP
         ob = bpy.context.object
         ob.select = True
         bpy.ops.object.mode_set(mode='EDIT') 
         bpy.ops.uv.unwrap(method='ANGLE_BASED', correct_aspect=True)
         
-        # UV Layer
+        #-----------------------------------------------------------------UV LAYER
         me = ob.data
         bm = bmesh.from_edit_mesh(me)
         uv_lay = bm.loops.layers.uv.verify()
         
-        # Group the UV at the origin point
+        #-----------------------------------------------------------------GROUP UV 
+        # Group all the UV points at the origin point
+        # Need more work, it's not working everytimes, don't know why...
         v = 0
         tpuvx = {}
         tpuvy = {}
-        for face in bm.faces:
-            for loop in face.loops:
+        for face in bm.faces:                                             # For each polygon
+            for loop in face.loops:                                       # For each loop
                 luv = loop[uv_lay]
                 v += 1
-                uv = loop[uv_lay].uv
-                tpuvx[uv.x] = loop.index
-                tpuvy[uv.y] = loop.index
+                uv = loop[uv_lay].uv                                      # Keep the coordinate of the uv point
+                tpuvx[uv.x] = loop.index                                  # Keep the X coordinate of the uv point
+                tpuvy[uv.y] = loop.index                                  # Keep the Y coordinate of the uv point
  
-                if v > 3:
-                    minx = min(tpuvx.keys())
-                    miny = min(tpuvy.keys())
-                    idxminx = tpuvx[minx]
-                    idxminy = tpuvy[miny]
+                if v > 3:                                                 # When the last uv point of this polygon is reached
+                    minx = min(tpuvx.keys())                              # Keep the smallest value on the X axis from the 4 uv point 
+                    miny = min(tpuvy.keys())                              # Keep the smallest value on the Y axis from the 4 uv point
 
-                    for loop in face.loops:
-                        loop[uv_lay].uv[0] -= minx
-                        loop[uv_lay].uv[1] -= miny
-            tpuvx.clear() 
-            tpuvy.clear()
+                    for loop in face.loops:                               # A new loop in the loop ... really need more work 
+                        loop[uv_lay].uv[0] -= minx                        # For each UV point, substract the value of the smallest X 
+                        loop[uv_lay].uv[1] -= miny                        # For each UV point, substract the value of the smallest Y
+            tpuvx.clear()                                                 # Clear the list
+            tpuvy.clear()                                                 # Clear the list
             
-        bmesh.update_edit_mesh(me)
+        bmesh.update_edit_mesh(me)                                        # Update the mesh
     else:
-        bpy.ops.object.mode_set(mode='OBJECT')       
-        #-----------    
-    
-    # Ajout du modifier SOLIDIFY
+        bpy.ops.object.mode_set(mode='OBJECT')                            # We are in 'OBJECT MODE' here, nothing to do
+   
+    #---------------------------------------------------------------------MODIFIERS
     nbop = len(cobj.modifiers)
     obj = context.active_object
     if nbop == 0:
@@ -623,15 +628,15 @@ def create_plancher(self,context):
 # PROPERTIES
 #############################################################
 
-    # Switch entre unités et mesures 
+    # Switch between length of the board and meters 
 bpy.types.Object.switch = BoolProperty(
                name="Switch",
-               description="Switch between length of plank and meters",
+               description="Switch between length of the board and meters",
                default=False,            
                update=create_plancher)  
 
-    # Longueur du plancher 
-bpy.types.Object.longueurparquet = FloatProperty(
+    # Length of the floor 
+bpy.types.Object.lengthparquet = FloatProperty(
                name="Length",
                description="Length of the floor",
                min=0.01, max=100.0,
@@ -642,16 +647,16 @@ bpy.types.Object.longueurparquet = FloatProperty(
                step=0.001,
                update=create_plancher)
 
-    # Nombre de lame
-bpy.types.Object.nbrlame = IntProperty(
+    # Number of row
+bpy.types.Object.nbrboards = IntProperty(
             name="Count",
             description="Number of row",
             min=1, max=100,
             default=2,
             update=create_plancher)
               
-    # Longueur d'une planche
-bpy.types.Object.longueurlame = FloatProperty(
+    # Length of a board
+bpy.types.Object.lengthboard = FloatProperty(
                name="Length",
                description="Length of a board",
                min=0.01, max=100.0,
@@ -661,8 +666,20 @@ bpy.types.Object.longueurlame = FloatProperty(
                unit='LENGTH',
                step=0.001,
                update=create_plancher)
-               
-    # Largeur d'une planche
+
+    # Height of the floor        
+bpy.types.Object.hauteur = FloatProperty(
+              name="Height",
+              description="Height of the floor",
+              min=0.01, max=100,
+              default=0.01,
+              precision=2,
+              subtype='DISTANCE',
+              unit='LENGTH',
+              step=0.1,
+              update=create_plancher)
+                             
+    # Width of a board
 bpy.types.Object.largeur = FloatProperty(
               name="Width",
               description="Width of a board",
@@ -674,8 +691,8 @@ bpy.types.Object.largeur = FloatProperty(
               step=0.1,
               update=create_plancher)
 
-    # Offset Random largeur         
-bpy.types.Object.randlargoffset = FloatProperty(
+    # Add random to the width         
+bpy.types.Object.randwith = FloatProperty(
                name="Random",
                description="Add random to the width",
                min=0, max=1,
@@ -686,8 +703,8 @@ bpy.types.Object.randlargoffset = FloatProperty(
                step=0.1,
                update=create_plancher)
 
-    # Interval entre les rangées sur les X
-bpy.types.Object.espacex = FloatProperty(
+    # Add a gap between the columns (X)
+bpy.types.Object.gapx = FloatProperty(
               name="Gap X",
               description="Add a gap between the columns (X)",  
               min=0.00, max=100.0,
@@ -698,8 +715,8 @@ bpy.types.Object.espacex = FloatProperty(
               step=0.001,
               update=create_plancher)
               
-    # Interval entre les rangées sur les Y
-bpy.types.Object.espacey = FloatProperty(
+    # Add a gap between the row (Y) (for the transversal's boards)
+bpy.types.Object.gapy = FloatProperty(
               name="Gap Y",
               description="Add a gap between the row (Y)",
               min=0.00, max=100.0,
@@ -710,22 +727,22 @@ bpy.types.Object.espacey = FloatProperty(
               step=0.001,              
               update=create_plancher)
 
-    # Remplir l'interval sur X
+    # Fill in the gap between the row (transversal)
 bpy.types.Object.trans = BoolProperty(
                name=" ",
                description="Fill in the gap between the row",
                default=False,           
                update=create_plancher) 
 
-    # Utilise les paramètre d'espacement
+    # Unlock the length of the transversal
 bpy.types.Object.locktrans = BoolProperty(
                name="Unlock",
                description="Unlock the length of the transversal",
                default=False,           
                update=create_plancher)
                
-    # Longueur de la planche transversale
-bpy.types.Object.longtrans = FloatProperty(
+    # Length of the transversal
+bpy.types.Object.lengthtrans = FloatProperty(
               name="Length",
               description="Length of the transversal",
               min=0.01, max=100,
@@ -736,10 +753,10 @@ bpy.types.Object.longtrans = FloatProperty(
               step=0.1,
               update=create_plancher)
 
-    # Espace entre les planches transversales
-bpy.types.Object.esptrans = FloatProperty(
+    # Gap between the transversals
+bpy.types.Object.gaptrans = FloatProperty(
               name="Gap",
-              description="Gap between the interval",
+              description="Gap between the transversals",
               min=0.00, max=100,
               default=0.01,
               precision=2,
@@ -748,16 +765,16 @@ bpy.types.Object.esptrans = FloatProperty(
               step=0.001,
               update=create_plancher)
 
-    # Nombre de lames transversales
+    # Number of transversals in the interval
 bpy.types.Object.nbrtrans = IntProperty(
             name="Count X",
-            description="Number of board in the interval",
+            description="Number of transversals in the interval",
             min=1, max=100,
             default=1,
             update=create_plancher)
            
-    # Décalage des rangées
-bpy.types.Object.offsety = FloatProperty(
+    # Shift the columns
+bpy.types.Object.shifty = FloatProperty(
                name="Shift",
                description="Shift the columns",
                min=0, max=1,
@@ -768,8 +785,8 @@ bpy.types.Object.offsety = FloatProperty(
                step=0.1,
                update=create_plancher)
 
-    # Random décalage             
-bpy.types.Object.randoffsety = FloatProperty(
+    # Add random to the shift          
+bpy.types.Object.randoshifty = FloatProperty(
                name="Random",
                description="Add random to the shift",
                min=0, max=1,
@@ -780,16 +797,16 @@ bpy.types.Object.randoffsety = FloatProperty(
                step=0.1,
                update=create_plancher)
                
-    # Nombre de lames décalées
-bpy.types.Object.nbrdecal = IntProperty(
+    # Number of column to shift
+bpy.types.Object.nbrshift = IntProperty(
             name="Nbr Shift",
             description="Number of column to shift",
             min=1, max=100,
             default=1,
             update=create_plancher)
             
-    # Décalage des planches
-bpy.types.Object.offsetx = FloatProperty(
+    # Tilt the columns
+bpy.types.Object.tilt = FloatProperty(
                name="Tilt",
                description="Tilt the columns",
                min= math.radians(0), max= math.radians(70),
@@ -800,34 +817,22 @@ bpy.types.Object.offsetx = FloatProperty(
                step=1,
                update=create_plancher)
 
-    # Hauteur           
-bpy.types.Object.hauteur = FloatProperty(
-              name="Height",
-              description="Height of the floor",
-              min=0.01, max=100,
-              default=0.01,
-              precision=2,
-              subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.1,
-              update=create_plancher)
-
-    # Parquet Herringbone
-bpy.types.Object.batonrompu = BoolProperty(
+    # Floor type Herringbone
+bpy.types.Object.herringbone = BoolProperty(
                name="Herringbone",
                description="Floor type Herringbone",
                default=False,            
                update=create_plancher)
 
-    # Nombre de vertex color
-bpy.types.Object.uvcol = IntProperty(
+    # Random color to the vertex group
+bpy.types.Object.colrand = IntProperty(
                name="Random Color",
                description="Random color to the vertex group",
                min=0, max=100,
                default=0,
                update=create_plancher)
 
-    # Nombre de vertex color
+    # Orderly color to the vertex group
 bpy.types.Object.colphase = IntProperty(
                name="Phase color",
                description="Orderly color to the vertex group",
@@ -835,7 +840,7 @@ bpy.types.Object.colphase = IntProperty(
                default=0,
                update=create_plancher)
 
-    # Nombre de vertex color
+    # New distribution for the random
 bpy.types.Object.colseed = IntProperty(
                name="Seed",
                description="New distribution for the random",
@@ -853,7 +858,7 @@ class AjoutPrimitive(bpy.types.Operator):
 		bpy.ops.mesh.primitive_cube_add()
 		context.active_object.name = "Plancher"
 		cobj = context.object
-		cobj.nbrlame = 2
+		cobj.nbrboards = 2
 		return {'FINISHED'}
 
 def register():
@@ -864,4 +869,5 @@ def unregister():
             
 if __name__ == "__main__":
     register()
+
 
