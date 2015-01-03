@@ -425,6 +425,8 @@ class PlancherPanel(bpy.types.Panel):
                         row = col.row(align=True)
                         row.prop(cobj, "nbrshift")
 
+                    col = layout.column(align=True)  
+                    col.label(text="INTERVAL")                        
                     col = layout.column(align=True)
                     row = col.row(align=True)
                     row.prop(cobj, "trans", text='Transversal', icon='BLANK1')
@@ -881,3 +883,4 @@ def unregister():
             
 if __name__ == "__main__":
     register()
+    
