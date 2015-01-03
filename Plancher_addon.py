@@ -204,6 +204,7 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
     end = lengthboard                                                                                                                              
     interleft = 0                                                                                                                                  
     interright = 0                                                                                                                                 
+    if locktrans: shifty = 0                                              # No shift with unlock !
     if shifty: locktrans = False                                          # Can't have the boards shifted and the tranversal unlocked              
     if herringbone : switch = True                                        # Constrain the computation of the length using the boards if herringbone
     if randoshifty > 0:                                                   # If randomness in the shift of the boards
@@ -434,8 +435,9 @@ class PlancherPanel(bpy.types.Panel):
                         row = col.row(align=True)
                         row.prop(cobj, "nbrshift")
                     row = col.row(align=True)
-                    row.prop(cobj, "shifty")
-                    row.prop(cobj, "randoshifty")
+                    if not cobj.locktrans:
+                        row.prop(cobj, "shifty")
+                        row.prop(cobj, "randoshifty")
                     
             #-------------------------------------------------------------CHEVRON / HERRINGBONE
                                 
@@ -882,5 +884,3 @@ def unregister():
             
 if __name__ == "__main__":
     register()
-
-
