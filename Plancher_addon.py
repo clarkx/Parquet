@@ -23,7 +23,7 @@
 bl_info = {
     "name": "Plancher",
     "author": "Cédric Brandin",
-    "version": (0, 0, 20),
+    "version": (0, 0, 30),
     "blender": (2, 73, 0),
 	  "location": "",
     "description": "Create a floor board",
@@ -57,10 +57,10 @@ from random import random as rand, seed, uniform as randuni, randint, expovariat
 #   |/                                 translatey \    \
 #   *---------------------------                   *----*  ---> translatex
 
-def calculangle(left, end, tilt, start, largeur, lengthboard):
+def calculangle(left, end, tilt, start, width, lengthboard):
 
-    opposite = largeur * math.tan(tilt)                                
-    hyp = math.sqrt(largeur ** 2 + opposite ** 2)                        
+    opposite = width * math.tan(tilt)                                
+    hyp = math.sqrt(width ** 2 + opposite ** 2)                        
     translatex = lengthboard * math.sin(tilt)                          
     translatey = math.sqrt((lengthboard ** 2) - (translatex ** 2))       
     
@@ -72,9 +72,10 @@ def calculangle(left, end, tilt, start, largeur, lengthboard):
 # Mesh of the board.
 # If the boards are tilt, we need to inverse the angle each time we call this function :
 # /\/\/ -> So each board will be upside-down compared to each other
-def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy):
+def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy, height, randheight):
     
     gapx = 0
+    height = randheight * randuni(0, height)                              # Add randomness to the height of the boards  
     if not herringbone: gapy = 0
     
     if tilt > 0:                                                          # / / / -> 1 board, 3 board, 5 board...               
@@ -93,13 +94,13 @@ def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy):
                                    
         
     # down left [0,0,0]
-    dl = Vector((left + shiftdown + gapx, start - gapy, 0))
+    dl = Vector((left + shiftdown + gapx, start - gapy, height))
     # down right [1,0,0]
-    dr = Vector((right + shiftdown + gapx, start - gapy, 0))
+    dr = Vector((right + shiftdown + gapx, start - gapy, height))
     # up right [1,1,0]
-    ur = Vector((right - shiftup + gapx, end - gapy, 0))
+    ur = Vector((right - shiftup + gapx, end - gapy, height))
     # up left [0,1,0]
-    ul = Vector((left - shiftup + gapx, end - gapy, 0))
+    ul = Vector((left - shiftup + gapx, end - gapy, height))
 
     if herringbone:
         if tilt > 0:                                                      # / / / -> 1 board, 3 board, 5 board... 
@@ -126,7 +127,7 @@ def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy):
 #  --   -> tilt < 0 : Translation on the x axis to follow the tilted boards
 # //
 
-def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtrans, verts, faces, locktrans, lengthtrans):
+def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight):
     
     if gaptrans < gapy/(nbrtrans+1):                                      # The gap can't be > to the width of the interval
         x = 0
@@ -146,7 +147,7 @@ def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtr
 
                 # Create the boards in the interval
                 nbvert = len(verts) 
-                verts.extend(interval(left, lengthint, startint, translatex, gapy, endtrans))
+                verts.extend(interval(left, lengthint, startint, translatex, gapy, endtrans, height, randheight))
                 faces.append((nbvert, nbvert+1, nbvert+2, nbvert+3))
                 startint = endtrans + gaptrans                            # Find the start of the next board
             #------------------------------------------------------------
@@ -169,16 +170,17 @@ def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtr
 #############################################################
 # Creation of 1 transversal 
 
-def interval(left, right, start, translatex, gapy, end):
+def interval(left, right, start, translatex, gapy, end, height, randheight):
+    height = randheight * randuni(0, height)                              # Add randomness to the height of the boards
 
     # Down right
-    dr = Vector((right + translatex, start, 0))
+    dr = Vector((right + translatex, start, height))
     # Down left
-    dl = Vector((left + translatex, start, 0))
+    dl = Vector((left + translatex, start, height))
     # Up left
-    ul = Vector((left + translatex, end, 0))
+    ul = Vector((left + translatex, end, height))
     # Up right
-    ur = Vector((right + translatex, end, 0))
+    ur = Vector((right + translatex, end, height))
     
     verts = (dl, ul, ur, dr)
     
@@ -189,7 +191,7 @@ def interval(left, right, start, translatex, gapy, end):
 #############################################################
 # Creation of a column of boards
 
-def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shifty, nbrshift, tilt, herringbone, randoshifty, lengthparquet, hauteur, trans, gaptrans, lengthtrans, locktrans, nbrtrans):
+def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, lengthboard, gapy, shifty, nbrshift, tilt, herringbone, randoshifty, lengthparquet, trans, gaptrans, lengthtrans, locktrans, nbrtrans):
 
     x = 0
     y = 0
@@ -223,7 +225,7 @@ def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shift
         trans = False                                                     # - No transversal
     
     # Compute the new length and width of the board if tilted
-    hyp, translatex, translatey = calculangle(left, end, tilt, start, largeur, end)
+    hyp, translatex, translatey = calculangle(left, end, tilt, start, width, end)
     
     randwidth = hyp + (randwith * randuni(0, hyp))                        # Randomness in the width
     right = randwidth                                                     # Right = width of the board
@@ -245,7 +247,7 @@ def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shift
 
         # Creation of the first board
         nbvert = len(verts)
-        verts.extend(board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy))
+        verts.extend(board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy, height, randheight))
         faces.append((nbvert,nbvert+1, nbvert+2, nbvert+3))
         
         # Début d'une nouvelle rangée (Y)
@@ -259,10 +261,10 @@ def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shift
         listinter.append(left)                                            # Keep the length of the actual interval
         if trans and ((x % nbrshift == 0) or ((x % nbrshift != 0) and (x == nbrboards))) and (end < lengthparquet) and not locktrans:
             if start2 > lengthparquet: start2 = lengthparquet             # Cut the board if it's > than the floor
-            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
+            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
         elif trans and (x == nbrboards) and locktrans:
             if start2 > lengthparquet: start2 = lengthparquet             # Cut the board if it's > than the floor
-            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
+            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
 
         #------------------------------------------------------------
         # Loop for the boards on the Y axis
@@ -279,7 +281,7 @@ def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shift
 
             # Creation of the board
             nbvert = len(verts)
-            verts.extend(board(start2, left, right, end2, tilt, translatex, hyp, herringbone, gapy))
+            verts.extend(board(start2, left, right, end2, tilt, translatex, hyp, herringbone, gapy, height, randheight))
             faces.append((nbvert,nbvert+1, nbvert+2, nbvert+3))
 
             # New column 
@@ -292,11 +294,11 @@ def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shift
             # The modulo (%) is here to determined if the actual interval as to be shift  
             if trans and ((x % nbrshift == 0) or ((x % nbrshift != 0) and (x == nbrboards))) and (end2 < lengthparquet) and not locktrans:
                 if start2 > lengthparquet: start2 = lengthparquet         # Cut the board if it's > than the floor
-                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
+                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
 
             elif trans and locktrans and (x == nbrboards) and (end2 < lengthparquet) :
                 if start2 > lengthparquet: start2 = lengthparquet         # Cut the board if it's > than the floor
-                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans)
+                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
 
             end2 = start2                                                 # End of the loop on Y axis
         #------------------------------------------------------------#
@@ -381,39 +383,34 @@ class PlancherPanel(bpy.types.Panel):
             #layout.label('Plancher only works in Object Mode.')
         elif myObj and myObj.name == 'Plancher'  :
             #-------------------------------------------------------------FLOOR
-            col.label(text="Surface")
-            
             col = layout.column(align=True)
+            col.label(text="SURFACE")            
             row = col.row(align=True)
             row.prop(cobj, "switch", icon='BLANK1')
             row = col.row(align=True)
             row.prop(cobj, "nbrboards")
             row.prop(cobj, "lengthparquet")
             row = col.row(align=True)         
-            row.prop(cobj, "hauteur")   
+            row.prop(cobj, "height")
+            row.prop(cobj, "randheight")   
 
             col = layout.column()
-            col = layout.column()      
+            col = layout.column(align=True)       
 
             #-------------------------------------------------------------BOARDS
-            col.label(text="Board")
-            col = layout.column(align=True)
+            col.label(text="BOARD")
             row = col.row(align=True)
-            
             row.prop(cobj, "lengthboard")
-            row.prop(cobj, "largeur")
+            row.prop(cobj, "width")
             row = col.row(align = True)
             row.prop(cobj, "randwith", text="Random", slider=True)
-            row = col.row(align=True) 
-            row.prop(cobj, "colseed")
             
             col = layout.column()
-            col = layout.column()   
+            col = layout.column(align=True)    
             
             #-------------------------------------------------------------GAP 
             if cobj.herringbone == False:       
-                col.label(text="Gap")                        
-                col = layout.column(align=True)              
+                col.label(text="GAP")                        
                 row = col.row(align=True)                    
                 row.prop(cobj, "gapx")                   
                 row.prop(cobj, "gapy")                       
@@ -439,23 +436,19 @@ class PlancherPanel(bpy.types.Panel):
                     row = col.row(align=True)
                     row.prop(cobj, "shifty")
                     row.prop(cobj, "randoshifty")
-                    row = col.row(align=True) 
-                    row.prop(cobj, "colseed")            
                     
             #-------------------------------------------------------------CHEVRON / HERRINGBONE
                                 
             if cobj.shifty == 0 :
                 if cobj.herringbone == False:
                     col = layout.column()
-                    col = layout.column()      
-                    col.label(text="Chevron")    
-                    col = layout.column(align=True)
+                    col = layout.column(align=True)      
+                    col.label(text="CHEVRON")    
                     row = col.row(align=True)
                     row.prop(cobj, "tilt")             
                 
                 if cobj.herringbone == True: 
                     col = layout.column()
-                    col = layout.column()   
                     col = layout.column(align=True)              
                     row = col.row(align=True) 
                     row.prop(cobj, "gapy")
@@ -464,6 +457,13 @@ class PlancherPanel(bpy.types.Panel):
                 row = col.row(align=True) 
                 row.prop(cobj, "herringbone", text='Herringbone', icon='BLANK1')
                 
+            #-------------------------------------------------------------SEED
+            col = layout.column()   
+            col = layout.column(align=True)
+            col.label(text="SEED")    
+            row = col.row(align=True)
+            row.prop(cobj, "colseed")            
+
             #-------------------------------------------------------------UV / VERTEX
             # Warning, 'cause all the parameters are lost when going back to Object mode...
             # Have to do something with this. 
@@ -483,24 +483,25 @@ def create_plancher(self,context):
     bpy.context.scene.unit_settings.system = 'METRIC'
     cobj = context.object
     verts, faces = parquet(cobj.switch,
-                               cobj.nbrboards,
-                               cobj.largeur,
-                               cobj.randwith,
-                               cobj.gapx,
-                               cobj.lengthboard,
-                               cobj.gapy,
-                               cobj.shifty,
-                               cobj.nbrshift,
-                               cobj.tilt,
-                               cobj.herringbone,
-                               cobj.randoshifty,
-                               cobj.lengthparquet,
-                               cobj.hauteur,
-                               cobj.trans,
-                               cobj.gaptrans,
-                               cobj.lengthtrans,
-                               cobj.locktrans,
-                               cobj.nbrtrans,)
+                           cobj.nbrboards,
+                           cobj.height,
+                           cobj.randheight,
+                           cobj.width,
+                           cobj.randwith,
+                           cobj.gapx,
+                           cobj.lengthboard,
+                           cobj.gapy,
+                           cobj.shifty,
+                           cobj.nbrshift,
+                           cobj.tilt,
+                           cobj.herringbone,
+                           cobj.randoshifty,
+                           cobj.lengthparquet,
+                           cobj.trans,
+                           cobj.gaptrans,
+                           cobj.lengthtrans,
+                           cobj.locktrans,
+                           cobj.nbrtrans,)
     
     # Code from Michel Anders script Floor Generator
     # Create mesh & link object to scene
@@ -620,7 +621,7 @@ def create_plancher(self,context):
         obj.modifiers.new('Solidify', 'SOLIDIFY')
         obj.modifiers.new('Bevel', 'BEVEL')
     cobj.modifiers['Solidify'].show_expanded = False
-    cobj.modifiers['Solidify'].thickness = self.hauteur
+    cobj.modifiers['Solidify'].thickness = self.height
     cobj.modifiers['Bevel'].show_expanded = False
     cobj.modifiers['Bevel'].width = 0.001
     bpy.context.user_preferences.edit.use_global_undo = True
@@ -669,7 +670,7 @@ bpy.types.Object.lengthboard = FloatProperty(
                update=create_plancher)
 
     # Height of the floor        
-bpy.types.Object.hauteur = FloatProperty(
+bpy.types.Object.height = FloatProperty(
               name="Height",
               description="Height of the floor",
               min=0.01, max=100,
@@ -679,9 +680,20 @@ bpy.types.Object.hauteur = FloatProperty(
               unit='LENGTH',
               step=0.1,
               update=create_plancher)
-                             
+
+    # Add random to the height
+bpy.types.Object.randheight = FloatProperty(
+               name="Random",
+               description="Add random to the height",
+               min=0, max=1,
+               default=0,
+               precision=2,
+               subtype='PERCENTAGE',
+               unit='NONE',
+               step=0.1,
+               update=create_plancher)                             
     # Width of a board
-bpy.types.Object.largeur = FloatProperty(
+bpy.types.Object.width = FloatProperty(
               name="Width",
               description="Width of a board",
               min=0.01, max=100.0,
