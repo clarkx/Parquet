@@ -38,7 +38,7 @@ import bpy
 import bmesh
 from bpy.props import IntProperty, FloatProperty, BoolProperty, FloatVectorProperty, EnumProperty
 from mathutils import Vector, Euler, Matrix
-from random import random as rand, seed, uniform as randuni, randint, expovariate
+from random import random as rand, seed, uniform as randuni, randint
 
 #############################################################
 # COMPUTE THE LENGTH OF THE BOARD AFTER THE TILT
@@ -418,26 +418,23 @@ class PlancherPanel(bpy.types.Panel):
                 if cobj.gapy > 0:                            
                                                       
             #-------------------------------------------------------------TRANSVERSAL     
-                    col = layout.column(align=True)
-                    row = col.row(align=True)
-                    row.label(text="Transversal:")
-                    row.prop(cobj, "trans")
-                    if cobj.trans:
-                        row.prop(cobj, "locktrans")
-                        col = layout.column(align=True)
-                        row = col.row(align=True)
-                        if cobj.locktrans: row.prop(cobj, "lengthtrans")
-                        if not cobj.locktrans: row.prop(cobj, "nbrshift")
-                        row.prop(cobj, "nbrtrans")
-                        row = col.row(align=True)
-                        row.prop(cobj, "gaptrans")
-                    else: 
-                        row = col.row(align=True)
-                        row.prop(cobj, "nbrshift")
                     row = col.row(align=True)
                     if not cobj.locktrans:
                         row.prop(cobj, "shifty")
                         row.prop(cobj, "randoshifty")
+                        row = col.row(align=True)
+                        row.prop(cobj, "nbrshift")
+
+                    col = layout.column(align=True)
+                    row = col.row(align=True)
+                    row.prop(cobj, "trans", text='Transversal', icon='BLANK1')
+                    if cobj.trans:
+                        row.prop(cobj, "locktrans", text='Unlock', icon='BLANK1')
+                        row = col.row(align=True)
+                        if cobj.locktrans: row.prop(cobj, "lengthtrans")
+                        row.prop(cobj, "nbrtrans")
+                        row = col.row(align=True)
+                        row.prop(cobj, "gaptrans")
                     
             #-------------------------------------------------------------CHEVRON / HERRINGBONE
                                 
