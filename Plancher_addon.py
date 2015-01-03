@@ -230,8 +230,8 @@ def parquet(switch, nbrboards, largeur, randwith, gapx, lengthboard, gapy, shift
     end = translatey - (translatey * randuni(randomshift, shifty))        # Randomness in the length
 
     if herringbone or switch:                                             # Compute the length of the floor based on the length of the boards
-        lengthparquet = round(lengthparquet / translatey) * translatey + (round(lengthparquet / translatey)-1) * gapy
-        
+        lengthparquet = ((round(lengthparquet / (translatey + gapy))) * (translatey + gapy)) - gapy
+               
     #------------------------------------------------------------
     # Loop for the boards on the X axis
     #------------------------------------------------------------
