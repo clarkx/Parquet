@@ -55,7 +55,7 @@ Gap : Gap between the transversals on the Y axis
 
 Random : Add randomness to the gap of the transversal
 
-Glue : Glue the boards included in the interval on the X axis
+Glue : Glue the boards included in the interval on the X axis (based on "Nbr Shift" parameter)
 
 
 CHEVRON : (No shift)
