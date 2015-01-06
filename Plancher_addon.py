@@ -92,15 +92,10 @@ def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy, hei
             gapy = gapy / 2        
             gapx = gapy * 2        
                                    
-        
-    # down left [0,0,0]
-    dl = Vector((left + shiftdown + gapx, start - gapy, height))
-    # down right [1,0,0]
-    dr = Vector((right + shiftdown + gapx, start - gapy, height))
-    # up right [1,1,0]
-    ur = Vector((right - shiftup + gapx, end - gapy, height))
-    # up left [0,1,0]
-    ul = Vector((left - shiftup + gapx, end - gapy, height))
+    dl = Vector((left + shiftdown + gapx, start - gapy, height))          # down left [0,0,0]
+    dr = Vector((right + shiftdown + gapx, start - gapy, height))         # down right [1,0,0]
+    ur = Vector((right - shiftup + gapx, end - gapy, height))             # up right [1,1,0]
+    ul = Vector((left - shiftup + gapx, end - gapy, height))              # up left [0,1,0]
 
     if herringbone:
         if tilt > 0:                                                      # / / / -> 1 board, 3 board, 5 board... 
@@ -127,8 +122,9 @@ def board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy, hei
 #  --   -> tilt < 0 : Translation on the x axis to follow the tilted boards
 # //
 
-def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight):
-    
+def transversal(left, right, start, tilt, translatex, gapy, gapx, gaptrans, randgaptrans, end, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight):
+    gaptrans = gaptrans + (randgaptrans * randuni(0, gaptrans))           # Add randomness to the gap of the transversal of the boards
+
     if gaptrans < gapy/(nbrtrans+1):                                      # The gap can't be > to the width of the interval
         x = 0
         lengthint = 0
@@ -150,6 +146,7 @@ def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtr
                 verts.extend(interval(left, lengthint, startint, translatex, gapy, endtrans, height, randheight))
                 faces.append((nbvert, nbvert+1, nbvert+2, nbvert+3))
                 startint = endtrans + gaptrans                            # Find the start of the next board
+
             #------------------------------------------------------------
             # Increment / initialize
             #------------------------------------------------------------
@@ -172,15 +169,28 @@ def transversal(left, right, start, tilt, translatex, gapy, gaptrans, end, nbrtr
 
 def interval(left, right, start, translatex, gapy, end, height, randheight):
     height = randheight * randuni(0, height)                              # Add randomness to the height of the boards
+    
+    dr = Vector((right + translatex, start, height))                      # Down right
+    dl = Vector((left + translatex, start, height))                       # Down left
+    ul = Vector((left + translatex, end, height))                         # Up left
+    ur = Vector((right + translatex, end, height))                        # Up right
+    
+    verts = (dl, ul, ur, dr)
+    
+    return verts
 
-    # Down right
-    dr = Vector((right + translatex, start, height))
-    # Down left
-    dl = Vector((left + translatex, start, height))
-    # Up left
-    ul = Vector((left + translatex, end, height))
-    # Up right
-    ur = Vector((right + translatex, end, height))
+#############################################################
+# BORDERS
+#############################################################
+# Creation of 1 transversal 
+
+def border(left, right, start, translatex, gapy, end, height, randheight):
+    height = randheight * randuni(0, height)                              # Add randomness to the height of the boards
+    
+    dr = Vector((right + translatex, start, height))                      # Down right
+    dl = Vector((left + translatex, start, height))                       # Down left
+    ul = Vector((left + translatex, end, height))                         # Up left
+    ur = Vector((right + translatex, end, height))                        # Up right
     
     verts = (dl, ul, ur, dr)
     
@@ -191,7 +201,7 @@ def interval(left, right, start, translatex, gapy, end, height, randheight):
 #############################################################
 # Creation of a column of boards
 
-def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, lengthboard, gapy, shifty, nbrshift, tilt, herringbone, randoshifty, lengthparquet, trans, gaptrans, lengthtrans, locktrans, nbrtrans):
+def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, lengthboard, gapy, shifty, nbrshift, tilt, herringbone, randoshifty, lengthparquet, trans, gaptrans, randgaptrans, glue, borders, lengthtrans, locktrans, nbrtrans):
 
     x = 0
     y = 0
@@ -204,7 +214,10 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
     end = lengthboard                                                                                                                              
     interleft = 0                                                                                                                                  
     interright = 0                                                                                                                                 
-    if locktrans: shifty = 0                                              # No shift with unlock !
+    if locktrans: 
+        shifty = 0                                                        # No shift with unlock !
+        glue = False
+        borders = False
     if shifty: locktrans = False                                          # Can't have the boards shifted and the tranversal unlocked              
     if herringbone : switch = True                                        # Constrain the computation of the length using the boards if herringbone
     if randoshifty > 0:                                                   # If randomness in the shift of the boards
@@ -234,14 +247,18 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
 
     if herringbone or switch:                                             # Compute the length of the floor based on the length of the boards
         lengthparquet = ((round(lengthparquet / (translatey + gapy))) * (translatey + gapy)) - gapy
-               
+    noglue = gapx           
     #------------------------------------------------------------
     # Loop for the boards on the X axis
     #------------------------------------------------------------
     while x < nbrboards:                                                  # X axis 
         x += 1   
 
-        if (x % nbrshift != 0): bool_translatey = not bool_translatey     # Shift on multiple columns
+        if glue and (x % nbrshift != 0): gapx = gaptrans
+        else: gapx = noglue
+
+
+        if (x % nbrshift != 0): bool_translatey = not bool_translatey     # Invert the shift 
         if end > lengthparquet :                                          # Cut the last board if it's > than the floor
             end = lengthparquet
             end2 = end
@@ -251,7 +268,7 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
         verts.extend(board(start, left, right, end, tilt, translatex, hyp, herringbone, gapy, height, randheight))
         faces.append((nbvert,nbvert+1, nbvert+2, nbvert+3))
         
-        # Début d'une nouvelle rangée (Y)
+        # Start a new column (Y)
         start2 = end + gapy
         end2 = start2 
         #------------------------------------------------------------
@@ -262,10 +279,19 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
         listinter.append(left)                                            # Keep the length of the actual interval
         if trans and ((x % nbrshift == 0) or ((x % nbrshift != 0) and (x == nbrboards))) and (end < lengthparquet) and not locktrans:
             if start2 > lengthparquet: start2 = lengthparquet             # Cut the board if it's > than the floor
-            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
+            transversal(listinter[0], right, end, tilt, translatex, gapy, gapx, gaptrans, randgaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
         elif trans and (x == nbrboards) and locktrans:
             if start2 > lengthparquet: start2 = lengthparquet             # Cut the board if it's > than the floor
-            transversal(listinter[0], right, end, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
+            transversal(listinter[0], right, end, tilt, translatex, gapy, gapx, gaptrans, randgaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
+            
+        #------------------------------------------------------------
+        # BORDERS
+        #------------------------------------------------------------
+        # Create the borders in the X gap if boards are glued
+        #if borders and glue and (x % nbrshift == 0) and (gaptrans < gapx/(nbrtrans+1)):
+        #    nbvert = len(verts) 
+        #    verts.extend(border(right+gaptrans, right+gapx-gaptrans, start, translatex, gapy, end, height, randheight))
+        #    faces.append((nbvert, nbvert+1, nbvert+2, nbvert+3))
 
         #------------------------------------------------------------
         # Loop for the boards on the Y axis
@@ -285,6 +311,15 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
             verts.extend(board(start2, left, right, end2, tilt, translatex, hyp, herringbone, gapy, height, randheight))
             faces.append((nbvert,nbvert+1, nbvert+2, nbvert+3))
 
+            #------------------------------------------------------------
+            # BORDERS
+            #------------------------------------------------------------
+            # Create the borders in the X gap if boards are glued
+            #if borders and glue and (x % nbrshift == 0) and (gaptrans < gapx/(nbrtrans+1)):
+            #    nbvert = len(verts) 
+            #    verts.extend(border(right+gaptrans, right+gapx-gaptrans, start2, translatex, gapy, end2, height, randheight))
+            #    faces.append((nbvert, nbvert+1, nbvert+2, nbvert+3))
+
             # New column 
             start2 += translatey + gapy
             
@@ -295,11 +330,13 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
             # The modulo (%) is here to determined if the actual interval as to be shift  
             if trans and ((x % nbrshift == 0) or ((x % nbrshift != 0) and (x == nbrboards))) and (end2 < lengthparquet) and not locktrans:
                 if start2 > lengthparquet: start2 = lengthparquet         # Cut the board if it's > than the floor
-                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
+                transversal(listinter[0], right, end2, tilt, translatex, gapy, gapx, gaptrans, randgaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
 
             elif trans and locktrans and (x == nbrboards) and (end2 < lengthparquet) :
                 if start2 > lengthparquet: start2 = lengthparquet         # Cut the board if it's > than the floor
-                transversal(listinter[0], right, end2, tilt, translatex, gapy, gaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
+                transversal(listinter[0], right, end2, tilt, translatex, gapy, gapx, gaptrans, randgaptrans, start2, nbrtrans, verts, faces, locktrans, lengthtrans, height, randheight)
+
+
 
             end2 = start2                                                 # End of the loop on Y axis
         #------------------------------------------------------------#
@@ -435,9 +472,15 @@ class PlancherPanel(bpy.types.Panel):
                         row = col.row(align=True)
                         if cobj.locktrans: row.prop(cobj, "lengthtrans")
                         row.prop(cobj, "nbrtrans")
+                    if (cobj.trans or cobj.glue):
                         row = col.row(align=True)
                         row.prop(cobj, "gaptrans")
-                    
+                        row.prop(cobj, "randgaptrans")
+                    row = col.row(align=True)
+                    if not cobj.locktrans:
+                        row.prop(cobj, "glue", text='Glue', icon='BLANK1')
+                        #if cobj.glue: row.prop(cobj, "borders", text='Borders', icon='BLANK1')                    
+
             #-------------------------------------------------------------CHEVRON / HERRINGBONE
                                 
             if cobj.shifty == 0 :
@@ -500,6 +543,9 @@ def create_plancher(self,context):
                            cobj.lengthparquet,
                            cobj.trans,
                            cobj.gaptrans,
+                           cobj.randgaptrans,
+                           cobj.glue,
+                           cobj.borders,
                            cobj.lengthtrans,
                            cobj.locktrans,
                            cobj.nbrtrans,)
@@ -740,53 +786,7 @@ bpy.types.Object.gapy = FloatProperty(
               unit='LENGTH',
               step=0.001,              
               update=create_plancher)
-
-    # Fill in the gap between the row (transversal)
-bpy.types.Object.trans = BoolProperty(
-               name=" ",
-               description="Fill in the gap between the row",
-               default=False,           
-               update=create_plancher) 
-
-    # Unlock the length of the transversal
-bpy.types.Object.locktrans = BoolProperty(
-               name="Unlock",
-               description="Unlock the length of the transversal",
-               default=False,           
-               update=create_plancher)
-               
-    # Length of the transversal
-bpy.types.Object.lengthtrans = FloatProperty(
-              name="Length",
-              description="Length of the transversal",
-              min=0.01, max=100,
-              default=2,
-              precision=2,
-              subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.1,
-              update=create_plancher)
-
-    # Gap between the transversals
-bpy.types.Object.gaptrans = FloatProperty(
-              name="Gap",
-              description="Gap between the transversals",
-              min=0.00, max=100,
-              default=0.01,
-              precision=2,
-              subtype='DISTANCE',
-              unit='LENGTH',
-              step=0.001,
-              update=create_plancher)
-
-    # Number of transversals in the interval
-bpy.types.Object.nbrtrans = IntProperty(
-            name="Count X",
-            description="Number of transversals in the interval",
-            min=1, max=100,
-            default=1,
-            update=create_plancher)
-           
+                          
     # Shift the columns
 bpy.types.Object.shifty = FloatProperty(
                name="Shift",
@@ -818,7 +818,79 @@ bpy.types.Object.nbrshift = IntProperty(
             min=1, max=100,
             default=1,
             update=create_plancher)
-            
+
+    # Fill in the gap between the row (transversal)
+bpy.types.Object.trans = BoolProperty(
+               name=" ",
+               description="Fill in the gap between the row",
+               default=False,           
+               update=create_plancher) 
+
+    # Unlock the length of the transversal
+bpy.types.Object.locktrans = BoolProperty(
+               name="Unlock",
+               description="Unlock the length of the transversal",
+               default=False,           
+               update=create_plancher)
+               
+    # Length of the transversal
+bpy.types.Object.lengthtrans = FloatProperty(
+              name="Length",
+              description="Length of the transversal",
+              min=0.01, max=100,
+              default=2,
+              precision=2,
+              subtype='DISTANCE',
+              unit='LENGTH',
+              step=0.1,
+              update=create_plancher)
+
+    # Number of transversals in the interval
+bpy.types.Object.nbrtrans = IntProperty(
+            name="Count X",
+            description="Number of transversals in the interval",
+            min=1, max=100,
+            default=1,
+            update=create_plancher)
+
+    # Gap between the transversals
+bpy.types.Object.gaptrans = FloatProperty(
+              name="Gap",
+              description="Gap between the transversals",
+              min=0.00, max=100,
+              default=0.01,
+              precision=2,
+              subtype='DISTANCE',
+              unit='LENGTH',
+              step=0.001,
+              update=create_plancher)
+
+    # Add random to the width         
+bpy.types.Object.randgaptrans = FloatProperty(
+               name="Random",
+               description="Add random to the gap of the transversal",
+               min=0, max=1,
+               default=0,
+               precision=2,
+               subtype='PERCENTAGE',
+               unit='NONE',
+               step=0.1,
+               update=create_plancher)
+               
+    # Glue the boards in the shift parameter 
+bpy.types.Object.glue = BoolProperty(
+               name="glue",
+               description="Glue the boards in the shift parameter",
+               default=False,           
+               update=create_plancher)
+
+    # Add borders 
+bpy.types.Object.borders = BoolProperty(
+               name="Borders",
+               description="Add borders between the glued boards",
+               default=False,           
+               update=create_plancher)
+                           
     # Tilt the columns
 bpy.types.Object.tilt = FloatProperty(
                name="Tilt",
@@ -883,4 +955,3 @@ def unregister():
             
 if __name__ == "__main__":
     register()
-    
