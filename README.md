@@ -35,28 +35,31 @@ Gap X : Add a gap between the boards on the X axis
 
 Gap Y : Add a gap between the boards on the Y axis
 
-Shift : Shift the columns upside down using the "Nbr Shift" parameter
+If not "Unlock" :
+- Shift : Shift the columns upside down using the "Nbr Shift" parameter
+- Random : Add randomness to the shift
+- Nbr Shift : Number of columns to shift // Length of the transversal (shift possible)
 
-Random : Add randomness to the shift
-
-Nbr Shift (if not "Unlock") : Number of columns to shift // Length of the transversal (shift possible)
-
-TRANSVERSAL:
+INTERVAL:
 ------------
-Transversal : Add a transversal board if there is a gap on the Y axis. By default, the length of the transversal is 'locked' on the "Nbr Shift" parameter. Use the "Unlock" check box to enter a specific value.
+Interval : Add a transversal board if there is a gap on the Y axis. By default, the length of the transversal is 'locked' on the "Nbr Shift" parameter. Use the "Unlock" check box to enter a specific value.
 
 Unlock : Allow to change the length of the transversal with a specific value (only if there is a transversal)
 
 Length (if "Unlock") : Enter a specific length to the transversal (no shift possible)
 
-Count X : Number of tranversals in the gap on the Y axis
+Column: Number of column used for the transversal
 
-Gap : Gap between the transversals on the Y axis
+Row : Number of tranversals in the gap on the Y axis (only one if borders)
+
+Gap : Gap between the transversals and borders on the Y axis
 
 Random : Add randomness to the gap of the transversal
 
 Glue : Glue the boards included in the interval on the X axis (based on "Nbr Shift" parameter)
 
+If "Glue":
+- Borders : Add borders defined by the length of the transversal (No shift, no unlock, no multiple rows, no tilt)
 
 CHEVRON : (No shift)
 -------
