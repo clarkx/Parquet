@@ -78,6 +78,8 @@ Vertex / UV :
 ------------
 Random Color : Number of color / vertex group to distribute randomly 
 
+- All random : Each board will have a random color and the vertex group will be randomly distribute
+
 Phase Color : Number of color / Vertex Group to distribute by "phase" or by boards
 
 Seed : New distribution of randomness
