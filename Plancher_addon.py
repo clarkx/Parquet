@@ -23,7 +23,7 @@
 bl_info = {
     "name": "Plancher",
     "author": "Cédric Brandin",
-    "version": (0, 0, 40),
+    "version": (0, 0, 30),
     "blender": (2, 72, 0),
 	  "location": "",
     "description": "Create a floor board",
@@ -174,9 +174,9 @@ def interval(left, right, start, translatex, gapy, end, height, randheight, widt
     height = randheight * randuni(0, height)                              # Add randomness to the height of the boards
     if gaptrans == gapx: bgap = 0
     else: bgap = gaptrans
-    if shifty == 0 and borders and tilt == 0:                             # No shift and no tilt for the borders
-        tipleft = left-gapx/2+bgap                                        # Compute the left tip
-        tipright = right+gapx/2-bgap                                      # Compute the right tip
+    if shifty == 0 and borders and tilt == 0:
+        tipleft = left-gapx/2+bgap
+        tipright = right+gapx/2-bgap
         if tipleft < 0: tipleft = 0                                       # Constrain the first left tip to 0...
         elif tipleft > left: tipleft = left                               # ...and the other to the left of the board
         if tipright < right: tipright = right                             # Constrain the right tips to the right of the board.. 
@@ -207,14 +207,15 @@ def interval(left, right, start, translatex, gapy, end, height, randheight, widt
 
 def border(left, right, start, gapy, end, height, randheight, gaptrans, randgaptrans, lengthparquet, translatey):
     height = randheight * randuni(0, height)                              # Add randomness to the height of the boards
-    gaptrans = gaptrans + (randgaptrans * randuni(0, gaptrans))           # Add randomness to the gap of the tips
-    tupgapy = gapy                                                        # Save the gapy for the upper tip
-    if end+tupgapy > lengthparquet: tupgapy = (lengthparquet - end)       # Cut the upper tip if it exceed the lenght of the floor
-    tipdown = start-gapy/2+gaptrans                                       # Compute the position of the lower tip
-    tipup = end+tupgapy/2-gaptrans                                        # Compute the position of the upper tip
-    if tipup < end: tipup = end                                           # Cut the upper tip if it exceed the end of the board
-    if tipdown < 0 : tipdown = 0                                          # Cut the lower tip if it exceed the end of the board..
-    elif tipdown > start: tipdown = start                                 # .. or the start of the floor.
+    gaptrans = gaptrans + (randgaptrans * randuni(0, gaptrans))
+    tdogapy = gapy
+    tupgapy = gapy
+    if end+tupgapy > lengthparquet: tupgapy = (lengthparquet - end)
+    tipdown = start-tdogapy/2+gaptrans
+    tipup = end+tupgapy/2-gaptrans
+    if tipup < end: tipup = end
+    if tipdown < 0 : tipdown = 0
+    elif tipdown > start: tipdown = start
     td = Vector(((left + right) /2, tipdown, height))                     # Tip down 
     tdl = Vector((left, start, height))                                   # Tip down left
     tup = Vector((left, end, height))                                     # Tip up left
@@ -233,22 +234,21 @@ def border(left, right, start, gapy, end, height, randheight, gaptrans, randgapt
 
 def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, lengthboard, gapy, shifty, nbrshift, tilt, herringbone, randoshifty, lengthparquet, trans, gaptrans, randgaptrans, glue, borders, lengthtrans, locktrans, nbrtrans):
 
-    x = 0                                                                 # Init
-    y = 0                                                                 # Init
-    verts = []                                                            # Init
-    faces = []                                                            # Init
-    listinter = []                                                        # Init
-    start = 0                                                             # Init
-    left = 0                                                              # Init
-    interleft = 0                                                         # Init                                                                         
-    interright = 0                                                        # Init                                                                         
+    x = 0
+    y = 0
+    verts = []
+    faces = []
+    listinter = []
+    start = 0
+    left = 0
     bool_translatey = True                                                # shifty = 0                                                             
     end = lengthboard                                                                                                                              
-
-    if locktrans:                                                         # Constraints if the transversal is unlock:
-        shifty = 0                                                        # - No shift with unlock !
-        glue = False                                                      # - No glue
-        borders = False                                                   # - No borders
+    interleft = 0                                                                                                                                  
+    interright = 0                                                                                                                                 
+    if locktrans: 
+        shifty = 0                                                        # No shift with unlock !
+        glue = False
+        borders = False
     if shifty: locktrans = False                                          # Can't have the boards shifted and the tranversal unlocked              
     if herringbone : switch = True                                        # Constrain the computation of the length using the boards if herringbone
     if randoshifty > 0:                                                   # If randomness in the shift of the boards
@@ -256,9 +256,9 @@ def parquet(switch, nbrboards, height, randheight, width, randwith, gapx, length
     else:
         randomshift = shifty                                              # No randomness
         
-    if shifty > 0:                                                        # Constraints if the boards are shift :
-        tilt = 0                                                          # - No tilt
-        herringbone = False                                               # - No herringbone 
+    if shifty > 0: 
+        tilt = 0
+        herringbone = False
 
     if gapy == 0:                                                         # If no gap on the Y axis : the transversal is not possible
         trans = False
@@ -443,10 +443,14 @@ class PlancherPanel(bpy.types.Panel):
             if cobj.colphase == 0:
                 row = col.row(align=True)
                 row.prop(cobj, "colrand")
+            if cobj.colrand > 0:
+                row = col.row(align=True) 
+                row.prop(cobj, "allrandom", text='All random', icon='BLANK1')
             #Phase Color
             if cobj.colrand == 0:
                 row = col.row(align=True) 
                 row.prop(cobj, "colphase")
+
             #Seed color
             row = col.row(align=True) 
             row.prop(cobj, "colseed")            
@@ -603,59 +607,73 @@ def create_plancher(self,context):
 
     #---------------------------------------------------------------------COLOR & UV 
     if obj_mode =='EDIT':                                                 # If we are in 'EDIT MODE'
-        seed(cobj.colseed)                                                # New random distribution
-        mesh.uv_textures.new("Txt_Plancher")                              # New UV map
-        vertex_colors = mesh.vertex_colors.new().data                     # New vertex color
+        seed(cobj.colseed)                                            # New random distribution
+        mesh.uv_textures.new("Txt_Plancher")                          # New UV map
+        vertex_colors = mesh.vertex_colors.new().data                 # New vertex color
         rgb = []
 
-        if cobj.colrand > 0:                                              # If random color
+        if cobj.colrand > 0:                                          # If random color
             for i in range(cobj.colrand):
-                color = [round(rand()), round(rand()), round(rand())]     # Create as many random color as in the colrand variable
-                rgb.append(color)                                         # Keep all the colors in the RGB variable
+                color = [round(rand(),1), round(rand(),1), round(rand(),1)] # Create as many random color as in the colrand variable
+                rgb.append(color)                                     # Keep all the colors in the RGB variable
 
-        elif cobj.colphase > 0:                                           # If phase color 
-            for n in range(cobj.colphase):                                  
-                color = [round(rand()), round(rand()), round(rand())]     # Create as many random color as in the colphase variable  
-                rgb.append(color)                                         # Keep all the colors in the RGB variable                 
+        elif cobj.colphase > 0:                                       # If phase color 
+            for n in range(cobj.colphase):                              
+                color = [round(rand(),1), round(rand(),1), round(rand(),1)] # Create as many random color as in the colphase variable  
+                rgb.append(color)                                     # Keep all the colors in the RGB variable                 
                 
     #---------------------------------------------------------------------VERTEX GROUP
-        bpy.context.object.vertex_groups.clear()                          # Clear vertex group if exist
-        if cobj.colrand == 0 and cobj.colphase == 0:                      # Create the first Vertex Group
+        bpy.context.object.vertex_groups.clear()                      # Clear vertex group if exist
+        if cobj.colrand == 0 and cobj.colphase == 0:                  # Create the first Vertex Group
             bpy.context.object.vertex_groups.new()
-        elif cobj.colrand > 0:                                            # Create as many VG as random color
+        elif cobj.colrand > 0:                                        # Create as many VG as random color
             for v in range(cobj.colrand): 
                 bpy.context.object.vertex_groups.new()
-        elif cobj.colphase > 0:                                           # Create as many VG as phase color
+        elif cobj.colphase > 0:                                       # Create as many VG as phase color
             for v in range(cobj.colphase): 
                 bpy.context.object.vertex_groups.new()
 
     #---------------------------------------------------------------------VERTEX COLOR        
         phase = cobj.colphase
         color = {}
-        for poly in mesh.polygons:                                        # For each polygon of the mesh
+        for poly in mesh.polygons:                                    # For each polygon of the mesh
 
-            if cobj.colrand == 0 and cobj.colphase == 0:                  # If no color 
-                color = [rand(), rand(), rand()]                          # Create at least one random color
+            if cobj.colrand == 0 and cobj.colphase == 0:              # If no color 
+                color = [rand(), rand(), rand()]                      # Create at least one random color
 
-            elif cobj.colrand > 0:                                        # If random color
-                color = rgb[randint(0,cobj.colrand-1)]                    # Take one color ramdomly from the RGB list
+            elif cobj.colrand > 0:                                    # If random color
+            
+                if cobj.allrandom:                                    # If all random choose
+                    nbpoly = len(mesh.polygons.items())               # Number of boards
+                    randvg = randint(0,cobj.colrand)                  # Random vertex group
+                    for i in range(nbpoly):                           
+                        color = [round(rand(),1), round(rand(),1), round(rand(),1)]     # Create as many random color as in the colrand variable
+                        rgb.append(color)                             # Keep all the colors in the RGB variable
+
+                else:
+                    color = rgb[randint(0,cobj.colrand-1)]            # Take one color ramdomly from the RGB list
                 
-                for loop_index in poly.loop_indices:                      # For each vertice from this polygon
-                    vertex_colors[loop_index].color = color               # Assign the same color
-                    vg = bpy.context.object.vertex_groups[rgb.index(color)]
-                    vg.add([loop_index], 1, "ADD")                        # index, weight, operation
 
-            elif cobj.colphase > 0:                                       # If phase color                          
-                color = rgb[phase-1]                                      # Take the last color from the RGB list
-                phase -= 1                                                # Substract 1 from the phase number
-                if phase == 0: phase = cobj.colphase                      # When phase = 0, start again from the beginning to loop in the rgb list
-                                                                          
-                for loop_index in poly.loop_indices:                      # For each vertice from this polygon
-                    vertex_colors[loop_index].color = color               # Assign the same color
-                    vg = bpy.context.object.vertex_groups[rgb.index(color)]
-                    vg.add([loop_index], 1, "ADD")                        # index, weight, operation
-        color.clear()                                                     # Clear the color list
+                for loop_index in poly.loop_indices:                  # For each vertice from this polygon
+                    vertex_colors[loop_index].color = color           # Assign the same color
+                    if cobj.allrandom:                                # If all random choose
+                        vg = bpy.context.object.vertex_groups[randvg-1] # Assign a random vertex group
+                    else: 
+                        vg = bpy.context.object.vertex_groups[rgb.index(color)] # Else assign a vertex group by color index
+                    vg.add([loop_index], 1, "ADD")                    # index, weight, operation
 
+            elif cobj.colphase > 0:                                   # If phase color                          
+                color = rgb[phase-1]                                  # Take the last color from the RGB list
+                phase -= 1                                            # Substract 1 from the phase number
+                if phase == 0: phase = cobj.colphase                  # When phase = 0, start again from the beginning to loop in the rgb list
+                                                                      
+                for loop_index in poly.loop_indices:                  # For each vertice from this polygon
+                    vertex_colors[loop_index].color = color           # Assign the same color
+                    vg = bpy.context.object.vertex_groups[rgb.index(color)]
+                    vg.add([loop_index], 1, "ADD")                    # index, weight, operation
+        color.clear()                                                 # Clear the color list
+
+   
         #-----------------------------------------------------------------UV UNWRAP
         ob = bpy.context.object
         ob.select = True
@@ -691,6 +709,7 @@ def create_plancher(self,context):
             tpuvy.clear()                                                 # Clear the list
             
         bmesh.update_edit_mesh(me)                                        # Update the mesh
+
     else:
         bpy.ops.object.mode_set(mode='OBJECT')                            # We are in 'OBJECT MODE' here, nothing to do
    
@@ -969,6 +988,12 @@ bpy.types.Object.colseed = IntProperty(
                default=0,
                update=create_plancher) 
 
+    # Random color for each board
+bpy.types.Object.allrandom = BoolProperty(
+               name="allrandom",
+               description="Make a random color for each board",
+               default=False,            
+               update=create_plancher)
                               
 class AjoutPrimitive(bpy.types.Operator):
 	bl_idname = "mesh.ajout_primitive"
